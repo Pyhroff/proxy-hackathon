@@ -17,6 +17,7 @@ browser -- that's the whole point of keeping perception and the gate as
 separate, swappable modules.
 """
 
+import asyncio
 import base64
 import pathlib
 
@@ -65,6 +66,49 @@ async def capture_screenshot(page: Page) -> str:
     read (text only, no image)."""
     png_bytes = await page.screenshot(type="png")
     return base64.b64encode(png_bytes).decode("ascii")
+
+
+# --- CDP live screencast -----------------------------------------------
+# ADDITIVE, not a replacement: capture_screenshot() above is untouched and
+# still called exactly where it always was (see agent/loop_playwright.py)
+# -- every event still carries its "screenshot" field the same as before.
+# This is a second, independent channel: Chrome's DevTools Protocol pushes
+# a continuous stream of frames as the page actually repaints, instead of
+# one still image per discrete action. See eval/cdp_live_compare.py for
+# the side-by-side proof (6 discrete frames vs ~28 continuous frames for
+# the same interaction) that motivated wiring this into the real app.
+
+async def start_cdp_stream(page: Page, on_frame) -> "object":
+    """Starts a live screencast on `page`. `on_frame` is an async callable
+    receiving one base64-encoded JPEG string per frame, called continuously
+    and independently of the agent loop's step boundaries -- a frame can
+    arrive mid-action, not just after one completes. Returns the CDP
+    session; pass it to stop_cdp_stream() when the task ends."""
+    cdp = await page.context.new_cdp_session(page)
+
+    def _on_frame(params: dict) -> None:
+        async def _handle():
+            try:
+                await on_frame(params["data"])
+            finally:
+                # Chrome pauses sending more frames until each one is
+                # acked -- forgetting this silently stalls the stream.
+                try:
+                    await cdp.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]})
+                except Exception:
+                    pass
+        asyncio.create_task(_handle())
+
+    cdp.on("Page.screencastFrame", _on_frame)
+    await cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 60, "maxWidth": 1000, "maxHeight": 800})
+    return cdp
+
+
+async def stop_cdp_stream(cdp_session) -> None:
+    try:
+        await cdp_session.send("Page.stopScreencast")
+    except Exception:
+        pass
 
 
 async def read_page_content(page: Page) -> list[UntrustedContent]:

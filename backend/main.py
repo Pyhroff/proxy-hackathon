@@ -178,7 +178,30 @@ async def task_socket(websocket: WebSocket, task_id: str):
         await websocket.close()
         return
 
-    agen = run_task_events_playwright(info["task"], info["html_path"], info["domain"])
+    # send_lock: ADDITIVE for the CDP live-view feature below. Two
+    # independent code paths now write to this one WebSocket -- the main
+    # loop (below) and frame_sink (fired from CDP frame callbacks, see
+    # agent/browser_runtime.py::start_cdp_stream). Concurrent unlocked
+    # sends on the same WebSocket can interleave/corrupt frames on the
+    # wire; the lock serializes them. The original single-writer code
+    # path (no frame_sink) never needed this, since only the main loop
+    # ever wrote to the socket.
+    send_lock = asyncio.Lock()
+
+    async def frame_sink(jpeg_b64: str) -> None:
+        # Deliberately NOT passed through append_event()/log_safe() --
+        # continuous CDP frames are a live-view-only channel, same
+        # principle as the existing per-step "screenshot" field already
+        # being excluded from the audit log (see log_safe below).
+        async with send_lock:
+            try:
+                await websocket.send_json({"type": "cdp_frame", "data": jpeg_b64})
+            except Exception:
+                pass
+
+    agen = run_task_events_playwright(
+        info["task"], info["html_path"], info["domain"], frame_sink=frame_sink
+    )
     final_status = "halted"  # default if anything goes wrong before a clean "done"
 
     # run_task_events_playwright() is a native async generator -- driven
@@ -199,7 +222,8 @@ async def task_socket(websocket: WebSocket, task_id: str):
         event = await advance(None)
         while True:
             append_event(task_id, log_safe(event))
-            await websocket.send_json(event)
+            async with send_lock:
+                await websocket.send_json(event)
 
             if event["type"] == "done":
                 final_status = "done"
@@ -232,7 +256,8 @@ async def task_socket(websocket: WebSocket, task_id: str):
         error_event = {"type": "halted", "text": f"Unexpected error: {e}"}
         append_event(task_id, error_event)
         try:
-            await websocket.send_json(error_event)
+            async with send_lock:
+                await websocket.send_json(error_event)
         except Exception:
             pass  # connection may already be gone
     finally:

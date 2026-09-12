@@ -30,6 +30,8 @@ from agent.browser_runtime import (
     find_submit_selector,
     execute_action,
     capture_screenshot,
+    start_cdp_stream,
+    stop_cdp_stream,
 )
 from agent.reasoner import decide_next_action
 from policy.gate import evaluate
@@ -63,6 +65,7 @@ async def run_task_events_playwright(
     html_path: str,
     target_domain: str,
     headless: bool = True,
+    frame_sink=None,
 ) -> AsyncGenerator[dict, bool]:
     """
     Async version of agent.loop.run_task_events -- same event shapes,
@@ -83,12 +86,25 @@ async def run_task_events_playwright(
                 event = await agen.asend(raw_value_str)
             else:
                 event = await agen.asend(None)
+
+    `frame_sink` (ADDITIVE, optional): an async callable(base64_jpeg: str)
+    called continuously with live CDP screencast frames, independently of
+    step boundaries -- see agent/browser_runtime.py's start_cdp_stream().
+    This does NOT replace or alter capture_screenshot()'s per-step
+    "screenshot" field on each yielded event below -- that stays exactly
+    as it was. frame_sink is a second, parallel channel for callers (like
+    backend/main.py) that want a live view in addition to the per-step one.
+    Pass None (the default) to get the exact original behavior, unchanged.
     """
     yield {"type": "narration", "text": f"Starting task: {task_description}"}
 
     playwright, browser, page = await launch_browser(headless=headless)
+    cdp_session = None
     try:
         await navigate(page, html_path)
+
+        if frame_sink is not None:
+            cdp_session = await start_cdp_stream(page, frame_sink)
 
         # --- PERCEIVE ---
         content_seen = await read_page_content(page)
@@ -220,7 +236,14 @@ async def run_task_events_playwright(
                 field_id = action["payload"]["selector"].lstrip("#")
                 filled_fields.add(field_id)
             screenshot = await capture_screenshot(page)  # refresh after every real action
-            yield {"type": "narration", "text": description, "screenshot": screenshot}
+            # ADDITIVE: surfaces which provider answered and its stated
+            # reason -- both harmless (never the field's actual value) and
+            # makes the provider-fallback engineering visible in the demo
+            # instead of being an invisible backend detail.
+            yield {
+                "type": "narration", "text": description, "screenshot": screenshot,
+                "provider": action.get("provider"), "reason": action.get("reason"),
+            }
 
             # --- OBSERVE / loop condition ---
             if action["action_type"] == "submit":
@@ -233,6 +256,8 @@ async def run_task_events_playwright(
         yield {"type": "halted", "text": f"Stopped: exceeded step budget of {MAX_STEPS}."}
 
     finally:
+        if cdp_session is not None:
+            await stop_cdp_stream(cdp_session)
         await close_browser(playwright, browser)
 
 

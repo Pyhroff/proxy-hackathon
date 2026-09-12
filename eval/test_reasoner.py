@@ -17,7 +17,12 @@ def test_invalid_providers_use_synthetic_fallback(monkeypatch):
     monkeypatch.setattr(reasoner, "_gemini", fail)
     monkeypatch.setattr(reasoner, "_ollama", fail)
     result = reasoner.decide_next_action("complete form", ["full_name"], set(), "submit")
-    assert result == {"action_type": "type", "payload": {"selector": "#full_name", "text": "Jane Doe"}}
+    # Subset check, not exact equality: decide_next_action() now also
+    # attaches "provider" and "reason" (additive fields for the UI's
+    # provider badge / reasoning display) -- this test only cares that
+    # the core action shape is still correct.
+    assert result["action_type"] == "type"
+    assert result["payload"] == {"selector": "#full_name", "text": "Jane Doe"}
 
 
 def test_submit_target_is_strict():
