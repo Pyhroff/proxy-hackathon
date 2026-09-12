@@ -12,20 +12,31 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_SYSTEM = ("You are Proxy's action planner. Return exactly one JSON object with action_type and payload. "
+_SYSTEM = ("You are Proxy's action planner. Return exactly one JSON object with action_type, payload, and reason. "
            "Allowed action_type values: type, submit, ask_human. Never invent selectors. "
            "If any field is not already filled, choose type for the first unfilled field and provide a plausible "
            "non-sensitive placeholder text. If all fields are filled and a submit button exists, choose submit. "
            "Use ask_human only when the page has no actionable field or submit button, and include a specific reason. "
-           "Never request or infer a real sensitive value. The policy gate makes the final decision.")
+           "Never request or infer a real sensitive value. The policy gate makes the final decision. "
+           "'reason' is always required: one short plain-language sentence explaining why you chose this action, "
+           "shown directly to the end user -- keep it brief and non-technical.\n\n"
+           "The 'payload' object's keys depend on action_type -- use EXACTLY these key names, no others:\n"
+           "  type:    {\"selector\": \"#<field_id>\", \"text\": \"<value>\"}  "
+           "-- selector is always the field id prefixed with '#', e.g. \"#full_name\"\n"
+           "  submit:  {\"selector\": \"#<submit_button_id>\"}\n"
+           "  ask_human: {\"reason\": \"<specific reason>\"}\n"
+           "Example valid response: "
+           "{\"action_type\": \"type\", \"payload\": {\"selector\": \"#full_name\", \"text\": \"Jane Doe\"}, "
+           "\"reason\": \"Filling in the name field since it is empty.\"}")
 
 _ACTION_SCHEMA = {
     "type": "object",
     "properties": {
         "action_type": {"type": "string", "enum": ["type", "submit", "ask_human"]},
         "payload": {"type": "object"},
+        "reason": {"type": "string"},
     },
-    "required": ["action_type", "payload"],
+    "required": ["action_type", "payload", "reason"],
 }
 
 
@@ -67,7 +78,8 @@ def _validate_action(value: Any, fields: list[str], submit: str | None) -> dict:
         raise ValueError("reasoner selected an invalid submit target")
     elif kind == "ask_human" and (not isinstance(payload.get("reason"), str) or not payload["reason"].strip()):
         raise ValueError("ask_human reason must be a string")
-    return {"action_type": kind, "payload": payload}
+    reason = value.get("reason", "")
+    return {"action_type": kind, "payload": payload, "reason": reason if isinstance(reason, str) else ""}
 
 
 def _json_text(text: str) -> dict:
@@ -136,7 +148,9 @@ def decide_next_action(task_description: str, fields: list[str], filled_fields: 
     errors = []
     for name, provider in (("Groq", _groq), ("Gemini", _gemini), ("Ollama", _ollama)):
         try:
-            return _validate_action(provider(prompt), fields, submit_selector)
+            result = _validate_action(provider(prompt), fields, submit_selector)
+            result["provider"] = name
+            return result
         except Exception as exc:
             status = getattr(getattr(exc, "response", None), "status_code", None)
             detail = str(exc).replace("GROQ_API_KEY", "[key]").replace("GEMINI_API_KEY", "[key]")[:300]
@@ -146,7 +160,10 @@ def decide_next_action(task_description: str, fields: list[str], filled_fields: 
     # policy gate; it is not allowed to invent selectors or bypass approval.
     for field in fields:
         if field not in filled_fields:
-            return {"action_type": "type", "payload": {"selector": f"#{field}", "text": _demo_value_for(field)}}
+            return {"action_type": "type", "payload": {"selector": f"#{field}", "text": _demo_value_for(field)},
+                    "provider": "Local Fallback", "reason": "All AI providers were unavailable; using a safe local placeholder."}
     if submit_selector:
-        return {"action_type": "submit", "payload": {"selector": f"#{submit_selector}"}}
-    return {"action_type": "ask_human", "payload": {"reason": "No valid next action was returned by the providers."}}
+        return {"action_type": "submit", "payload": {"selector": f"#{submit_selector}"},
+                "provider": "Local Fallback", "reason": "All fields are filled and a submit control was found."}
+    return {"action_type": "ask_human", "payload": {"reason": "No valid next action was returned by the providers."},
+            "provider": "Local Fallback", "reason": "No actionable field or submit control was found on the page."}

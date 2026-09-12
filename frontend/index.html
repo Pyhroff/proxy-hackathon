@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Proxy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237A0C1E'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Georgia,serif' fill='white' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,26 +21,25 @@
 
   <div class="split-layout">
 
-    <!-- LEFT: the agent session -- task input, live narration, approvals, PII input -->
+    <!-- LEFT: chat-style agent session -- conversational task input, live narration, approvals, PII input -->
     <section class="panel agent-panel">
-      <div class="panel-header"><span class="dot" id="agent-dot"></span> Agent Session</div>
+      <div class="panel-header">
+        <span class="dot" id="agent-dot"></span> Agent Session
+        <span class="step-progress" id="step-progress"></span>
+      </div>
       <div class="panel-body">
-        <div class="task-form">
-          <label for="task-input">What do you need help with?</label>
-          <input type="text" id="task-input" value="Complete the housing benefits application">
-
-          <label for="site-select">Demo scenario</label>
-          <select id="site-select">
-            <option value="clean">Normal application (clean site)</option>
-            <option value="poisoned">Attack demo (poisoned site)</option>
-          </select>
-
-          <div style="margin-top: 16px;">
-            <button id="start-btn">Start</button>
-          </div>
+        <div id="narration" role="status" aria-live="polite" aria-atomic="false">
+          <div class="event narration chat-intro">👋 Hi, I'm Proxy. Tell me what you need help with, and I'll take care of it on the real page.</div>
         </div>
 
-        <div id="narration" role="status" aria-live="polite" aria-atomic="false"></div>
+        <div class="chat-composer">
+          <select id="site-select" title="Demo scenario">
+            <option value="clean">Normal application</option>
+            <option value="poisoned">Attack demo</option>
+          </select>
+          <input type="text" id="task-input" placeholder="e.g. Complete the housing benefits application" value="Complete the housing benefits application">
+          <button id="start-btn">Send</button>
+        </div>
         <p><a id="log-link" class="task-link" href="#" target="_blank" style="display:none">View this task in the Case Worker Dashboard →</a></p>
       </div>
     </section>
@@ -77,26 +77,43 @@
     let currentTaskId = null;
     let ws = null;
 
-    function addEvent(type, text) {
+    function addEvent(type, text, meta) {
       const div = document.createElement("div");
       div.className = "event " + type;
       div.textContent = text;
+      if (meta && (meta.provider || meta.reason)) {
+        const sub = document.createElement("div");
+        sub.className = "event-meta";
+        sub.textContent = (meta.provider ? "via " + meta.provider : "") + (meta.reason ? " — " + meta.reason : "");
+        div.appendChild(sub);
+      }
       narrationEl.appendChild(div);
       narrationEl.scrollTop = narrationEl.scrollHeight;
       return div;
     }
 
-    // --- RIGHT PANEL: live screenshot, or flagged-content view on a block ---
+    // --- RIGHT PANEL: live view (per-step screenshots AND continuous CDP
+    // frames both render here), or flagged-content view on a block ---
 
-    function showScreenshot(base64png) {
+    // attackFlagged: once the gate blocks something, ignore any further
+    // image updates (a per-step screenshot OR a stray in-flight CDP
+    // frame) so nothing can silently overwrite the red "Content Flagged"
+    // view the user is meant to see and remember.
+    let attackFlagged = false;
+    let liveImgEl = null; // reused across frames -- CDP can send many
+
+    function showScreenshot(base64Data, mime = "png") {
+      if (attackFlagged) return;
       browserPanelTitle.textContent = "What Proxy Sees";
       browserDot.className = "dot live";
-      browserPanelBody.innerHTML = "";
-      const img = document.createElement("img");
-      img.className = "live-screenshot";
-      img.alt = "Live screenshot of the page Proxy is currently working on";
-      img.src = "data:image/png;base64," + base64png;
-      browserPanelBody.appendChild(img);
+      if (!liveImgEl) {
+        browserPanelBody.innerHTML = "";
+        liveImgEl = document.createElement("img");
+        liveImgEl.className = "live-screenshot";
+        liveImgEl.alt = "Live view of the page Proxy is currently working on";
+        browserPanelBody.appendChild(liveImgEl);
+      }
+      liveImgEl.src = `data:image/${mime};base64,` + base64Data;
     }
 
     function showFlaggedContent(blockedPattern, reason) {
@@ -105,6 +122,8 @@
       // of the attack moment would just show a normal-looking form and
       // undersell what actually happened. Show the actual flagged text
       // instead -- this is the moment people remember.
+      attackFlagged = true;
+      liveImgEl = null;
       browserPanelTitle.textContent = "⚠️ Content Flagged";
       browserDot.className = "dot flagged";
       browserPanelBody.innerHTML = "";
@@ -132,6 +151,8 @@
     }
 
     function resetBrowserPanel() {
+      attackFlagged = false;
+      liveImgEl = null;
       browserPanelTitle.textContent = "What Proxy Sees";
       browserDot.className = "dot";
       browserPanelBody.innerHTML = '<div class="browser-empty-state" id="browser-empty-state">Start a task to see the live page here.</div>';
@@ -203,13 +224,36 @@
       addEvent("narration", "You provided the requested information directly. Proxy did not see or store the value.");
     }
 
+    let stepCount = 0;
+    let thinkingEl = null;
+    const stepProgressEl = document.getElementById("step-progress");
+
+    function showThinking() {
+      hideThinking();
+      thinkingEl = document.createElement("div");
+      thinkingEl.className = "event narration thinking";
+      thinkingEl.innerHTML = 'Proxy is thinking<span class="dots"><span>.</span><span>.</span><span>.</span></span>';
+      narrationEl.appendChild(thinkingEl);
+      narrationEl.scrollTop = narrationEl.scrollHeight;
+    }
+    function hideThinking() {
+      if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; }
+    }
+    function bumpStep() {
+      stepCount++;
+      stepProgressEl.textContent = "Step " + stepCount;
+    }
+
     async function startTask() {
       narrationEl.innerHTML = "";
       logLink.style.display = "none";
       startBtn.disabled = true;
-      startBtn.textContent = "Working…";
+      startBtn.textContent = "Sending…";
       agentDot.className = "dot live";
       resetBrowserPanel();
+      stepCount = 0;
+      stepProgressEl.textContent = "";
+      showThinking();
 
       const task = document.getElementById("task-input").value;
       const site = document.getElementById("site-select").value;
@@ -233,9 +277,21 @@
       ws.onmessage = (msg) => {
         const event = JSON.parse(msg.data);
 
-        if (event.screenshot) {
-          showScreenshot(event.screenshot);
+        // CDP live frames (ADDITIVE): a continuous stream, arrives
+        // independently of and far more often than the per-step
+        // "screenshot" field below -- both render to the same panel,
+        // whichever arrives updates it. See backend/main.py's frame_sink.
+        if (event.type === "cdp_frame") {
+          showScreenshot(event.data, "jpeg");
+          return;
         }
+
+        if (event.screenshot) {
+          showScreenshot(event.screenshot, "png");
+        }
+
+        hideThinking();
+        bumpStep();
 
         if (event.type === "pii_required") {
           addPiiPrompt(event.field_id, event.mask, event.text);
@@ -245,15 +301,19 @@
           addEvent("halted", "🛑 Blocked: " + event.reason);
           showFlaggedContent(event.blocked_pattern, event.reason);
         } else {
-          addEvent(event.type, event.text || event.reason || "");
+          addEvent(event.type, event.text || event.reason || "", { provider: event.provider, reason: event.provider ? event.reason : null });
         }
 
         if (event.type === "done" || event.type === "halted") {
           resetButton();
+          stepProgressEl.textContent = event.type === "done" ? "Complete" : "Stopped";
           agentDot.className = event.type === "done" ? "dot live" : "dot flagged";
+        } else {
+          showThinking(); // waiting for the next step/provider response
         }
       };
       ws.onerror = () => {
+        hideThinking();
         addEvent("halted", "Connection error — is the backend running? (uvicorn backend.main:app)");
         resetButton();
       };
@@ -261,7 +321,7 @@
 
     function resetButton() {
       startBtn.disabled = false;
-      startBtn.textContent = "Start";
+      startBtn.textContent = "Send";
     }
 
     startBtn.onclick = startTask;
