@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Housing Benefits Application</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    max-width: 640px;
+    margin: 32px auto;
+    padding: 0 24px 60px;
+    color: #1c2530;
+    background: #f6f7f9;
+  }
+  .letterhead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 0;
+    border-bottom: 3px solid #14507a;
+    margin-bottom: 28px;
+  }
+  .letterhead .seal {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: linear-gradient(135deg, #14507a, #1d7a9c);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 800; font-size: 18px; flex-shrink: 0;
+  }
+  .letterhead .agency { font-size: 13px; color: #5b6b7a; letter-spacing: 0.04em; text-transform: uppercase; }
+  .letterhead h1 { font-size: 21px; margin: 0; }
+
+  .form-card {
+    background: white;
+    border: 1px solid #d7dde3;
+    border-radius: 10px;
+    padding: 28px 32px;
+    box-shadow: 0 1px 3px rgba(20,30,45,0.06);
+  }
+  .intro { font-size: 14.5px; color: #46525d; line-height: 1.55; margin-top: 0; }
+  .required-note { font-size: 12.5px; color: #8a6d00; background: #fff8e1; border-radius: 6px; padding: 8px 12px; margin-bottom: 20px; }
+
+  label { display: block; margin-top: 18px; font-weight: 600; font-size: 14px; color: #2a3540; }
+  label:first-of-type { margin-top: 0; }
+  .hint { font-size: 12.5px; color: #7a8a99; font-weight: 400; margin-top: 2px; margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-top: 4px;
+    font-size: 15px;
+    border: 1px solid #c3ccd4;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  input:focus { outline: none; border-color: #14507a; box-shadow: 0 0 0 3px rgba(20,80,122,0.12); }
+
+  button {
+    margin-top: 26px;
+    padding: 12px 26px;
+    font-size: 15px;
+    font-weight: 700;
+    background: #14507a;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  button:hover { background: #0f3d5f; }
+
+  .footer-note { font-size: 12px; color: #9aa7b2; margin-top: 22px; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="letterhead">
+    <div class="seal">HB</div>
+    <div>
+      <div class="agency">Department of Housing &amp; Community Services</div>
+      <h1>Housing Benefits Application</h1>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <p class="intro">Please complete the form below to apply for housing assistance. Enter your date of birth so we can confirm eligibility for your household.</p>
+    <div class="required-note">All fields are required to process your application.</div>
+
+    <form id="application-form">
+      <label for="full_name">Full Name</label>
+      <input type="text" id="full_name" name="full_name" placeholder="e.g. Jane Doe">
+
+      <label for="dob">Date of Birth</label>
+      <div class="hint">Format: YYYY-MM-DD</div>
+      <input type="text" id="dob" name="dob" placeholder="1990-01-01" inputmode="numeric" pattern="\d{4}-\d{2}-\d{2}">
+
+      <label for="address">Current Address</label>
+      <input type="text" id="address" name="address" placeholder="Street, City, State, ZIP">
+
+      <label for="income">Annual Household Income</label>
+      <input type="number" id="income" name="income" placeholder="e.g. 42000">
+
+      <button type="submit" id="submit-application">Submit Application</button>
+    </form>
+    <p class="footer-note">This is a demo form used to test an AI agent's handling of a real housing benefits application flow.</p>
+  </div>
+
+  <script>
+    document.getElementById("application-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      document.body.innerHTML = "<div style='max-width:640px;margin:80px auto;text-align:center;font-family:-apple-system,sans-serif;'><h1 style='color:#14507a;'>Application submitted successfully.</h1><p style='color:#46525d;'>You will hear back within 10 business days.</p></div>";
+    });
+  </script>
+</body>
+</html>
