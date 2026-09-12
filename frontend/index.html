@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Proxy</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top-nav">
+    <a class="brand" href="index.html">Proxy</a>
+    <nav>
+      <a href="dashboard.html">Case Worker Dashboard</a>
+    </nav>
+  </header>
+
+  <div class="split-hero">
+    <h1>Let Proxy handle it</h1>
+    <p class="subtitle">Tell Proxy what needs to be done. Watch it work on the real page, step by step, with your approval before anything final happens.</p>
+  </div>
+
+  <div class="split-layout">
+
+    <!-- LEFT: the agent session -- task input, live narration, approvals, PII input -->
+    <section class="panel agent-panel">
+      <div class="panel-header"><span class="dot" id="agent-dot"></span> Agent Session</div>
+      <div class="panel-body">
+        <div class="task-form">
+          <label for="task-input">What do you need help with?</label>
+          <input type="text" id="task-input" value="Complete the housing benefits application">
+
+          <label for="site-select">Demo scenario</label>
+          <select id="site-select">
+            <option value="clean">Normal application (clean site)</option>
+            <option value="poisoned">Attack demo (poisoned site)</option>
+          </select>
+
+          <div style="margin-top: 16px;">
+            <button id="start-btn">Start</button>
+          </div>
+        </div>
+
+        <div id="narration" role="status" aria-live="polite" aria-atomic="false"></div>
+        <p><a id="log-link" class="task-link" href="#" target="_blank" style="display:none">View this task in the Case Worker Dashboard →</a></p>
+      </div>
+    </section>
+
+    <!-- RIGHT: what the agent is actually looking at -->
+    <section class="panel browser-panel">
+      <div class="panel-header"><span class="dot" id="browser-dot"></span> <span id="browser-panel-title">What Proxy Sees</span></div>
+      <div class="panel-body" id="browser-panel-body">
+        <div class="browser-empty-state" id="browser-empty-state">
+          Start a task to see the live page here.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Relative to whatever host actually served this page -- the backend
+    // serves this frontend itself (see backend/main.py's StaticFiles
+    // mount), so this works whether you're on localhost, a different
+    // port, or a different machine entirely for the demo. Only breaks if
+    // this file is opened directly as file:// instead of through the
+    // running backend -- always use the URL uvicorn prints, not double-click.
+    const BACKEND_HTTP = window.location.origin;
+    const BACKEND_WS = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host;
+
+    const narrationEl = document.getElementById("narration");
+    const startBtn = document.getElementById("start-btn");
+    const logLink = document.getElementById("log-link");
+    const browserPanelBody = document.getElementById("browser-panel-body");
+    const browserPanelTitle = document.getElementById("browser-panel-title");
+    const browserDot = document.getElementById("browser-dot");
+    const agentDot = document.getElementById("agent-dot");
+
+    let currentTaskId = null;
+    let ws = null;
+
+    function addEvent(type, text) {
+      const div = document.createElement("div");
+      div.className = "event " + type;
+      div.textContent = text;
+      narrationEl.appendChild(div);
+      narrationEl.scrollTop = narrationEl.scrollHeight;
+      return div;
+    }
+
+    // --- RIGHT PANEL: live screenshot, or flagged-content view on a block ---
+
+    function showScreenshot(base64png) {
+      browserPanelTitle.textContent = "What Proxy Sees";
+      browserDot.className = "dot live";
+      browserPanelBody.innerHTML = "";
+      const img = document.createElement("img");
+      img.className = "live-screenshot";
+      img.alt = "Live screenshot of the page Proxy is currently working on";
+      img.src = "data:image/png;base64," + base64png;
+      browserPanelBody.appendChild(img);
+    }
+
+    function showFlaggedContent(blockedPattern, reason) {
+      // Deliberately NOT a screenshot here -- the injection is invisible
+      // by design (hidden text, white-on-white, etc.), so a screenshot
+      // of the attack moment would just show a normal-looking form and
+      // undersell what actually happened. Show the actual flagged text
+      // instead -- this is the moment people remember.
+      browserPanelTitle.textContent = "⚠️ Content Flagged";
+      browserDot.className = "dot flagged";
+      browserPanelBody.innerHTML = "";
+      const view = document.createElement("div");
+      view.className = "flagged-view";
+
+      const title = document.createElement("div");
+      title.className = "flagged-title";
+      title.textContent = "🛑 Proxy stopped before acting";
+      view.appendChild(title);
+
+      const note = document.createElement("div");
+      note.className = "flagged-note";
+      note.textContent = "This page contained text designed to manipulate an AI agent. Proxy detected it and refused to act on it.";
+      view.appendChild(note);
+
+      if (blockedPattern) {
+        const quote = document.createElement("div");
+        quote.className = "flagged-quote";
+        quote.textContent = blockedPattern;
+        view.appendChild(quote);
+      }
+
+      browserPanelBody.appendChild(view);
+    }
+
+    function resetBrowserPanel() {
+      browserPanelTitle.textContent = "What Proxy Sees";
+      browserDot.className = "dot";
+      browserPanelBody.innerHTML = '<div class="browser-empty-state" id="browser-empty-state">Start a task to see the live page here.</div>';
+    }
+
+    // --- LEFT PANEL: approvals + PII input (unchanged behavior, restyled) ---
+
+    function addApprovalPrompt(reasonText) {
+      const wrapper = addEvent("escalation", "⚠️ " + reasonText);
+      const box = document.createElement("div");
+      box.className = "approve-box";
+
+      const approveBtn = document.createElement("button");
+      approveBtn.textContent = "Approve";
+      approveBtn.onclick = () => sendApproval(true, box);
+
+      const denyBtn = document.createElement("button");
+      denyBtn.textContent = "Deny";
+      denyBtn.className = "deny";
+      denyBtn.onclick = () => sendApproval(false, box);
+
+      box.appendChild(approveBtn);
+      box.appendChild(denyBtn);
+      wrapper.appendChild(box);
+    }
+
+    async function sendApproval(approved, box) {
+      box.remove();
+      await fetch(`${BACKEND_HTTP}/task/${currentTaskId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approved }),
+      });
+      addEvent("narration", approved ? "You approved this action." : "You denied this action.");
+    }
+
+    // PII-gated input: Proxy never sees or stores the value you type here
+    // -- it goes straight from this form to the backend and then directly
+    // into the form field, bypassing the agent entirely (see
+    // THREAT_MODEL.md "PII Handling"). The right panel keeps showing the
+    // static page while you type here -- nothing auto-fills on the image
+    // itself. Resuming requires clicking "Done -- Continue" explicitly.
+    function addPiiPrompt(fieldId, mask, promptText) {
+      const wrapper = addEvent("pii", "🔒 " + promptText);
+      const box = document.createElement("div");
+      box.className = "pii-box";
+
+      const input = document.createElement("input");
+      input.type = mask ? "password" : "text";
+      input.setAttribute("aria-label", `Value for ${fieldId}`);
+
+      const doneBtn = document.createElement("button");
+      doneBtn.textContent = "Done — Continue";
+      doneBtn.onclick = () => sendPiiValue(input.value, box);
+
+      box.appendChild(input);
+      box.appendChild(doneBtn);
+      wrapper.appendChild(box);
+      input.focus();
+    }
+
+    async function sendPiiValue(value, box) {
+      box.remove();
+      await fetch(`${BACKEND_HTTP}/task/${currentTaskId}/provide-pii`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+      addEvent("narration", "You provided the requested information directly. Proxy did not see or store the value.");
+    }
+
+    async function startTask() {
+      narrationEl.innerHTML = "";
+      logLink.style.display = "none";
+      startBtn.disabled = true;
+      startBtn.textContent = "Working…";
+      agentDot.className = "dot live";
+      resetBrowserPanel();
+
+      const task = document.getElementById("task-input").value;
+      const site = document.getElementById("site-select").value;
+
+      const res = await fetch(`${BACKEND_HTTP}/task/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task, site }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        addEvent("halted", "Error: " + data.error);
+        resetButton();
+        return;
+      }
+      currentTaskId = data.task_id;
+      logLink.href = `dashboard.html?task=${currentTaskId}`;
+      logLink.style.display = "inline";
+
+      ws = new WebSocket(`${BACKEND_WS}/ws/${currentTaskId}`);
+      ws.onmessage = (msg) => {
+        const event = JSON.parse(msg.data);
+
+        if (event.screenshot) {
+          showScreenshot(event.screenshot);
+        }
+
+        if (event.type === "pii_required") {
+          addPiiPrompt(event.field_id, event.mask, event.text);
+        } else if (event.type === "escalation" && !event.blocked) {
+          addApprovalPrompt(event.reason);
+        } else if (event.type === "escalation" && event.blocked) {
+          addEvent("halted", "🛑 Blocked: " + event.reason);
+          showFlaggedContent(event.blocked_pattern, event.reason);
+        } else {
+          addEvent(event.type, event.text || event.reason || "");
+        }
+
+        if (event.type === "done" || event.type === "halted") {
+          resetButton();
+          agentDot.className = event.type === "done" ? "dot live" : "dot flagged";
+        }
+      };
+      ws.onerror = () => {
+        addEvent("halted", "Connection error — is the backend running? (uvicorn backend.main:app)");
+        resetButton();
+      };
+    }
+
+    function resetButton() {
+      startBtn.disabled = false;
+      startBtn.textContent = "Start";
+    }
+
+    startBtn.onclick = startTask;
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Proxy — Case Worker Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top-nav">
+    <a class="brand" href="index.html">Proxy</a>
+    <nav>
+      <a href="index.html">Start a Task</a>
+    </nav>
+  </header>
+
+  <div class="page">
+    <h1>Case Worker Dashboard</h1>
+    <p class="subtitle">Every task Proxy has run, and exactly what it did — the accountability record behind the pitch.</p>
+
+    <div id="task-list-view">
+      <div class="card">
+        <div id="connection-error" class="event halted" style="display:none">
+          Could not reach the backend at <code id="backend-url-display"></code>. Is <code>uvicorn backend.main:app</code> running?
+        </div>
+        <table id="task-table">
+          <thead>
+            <tr><th>Task</th><th>Site</th><th>Status</th><th>Started</th></tr>
+          </thead>
+          <tbody id="task-table-body"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state" style="display:none">No tasks have been run yet. <a class="task-link" href="index.html">Start one →</a></div>
+      </div>
+    </div>
+
+    <div id="task-detail-view" style="display:none">
+      <button class="secondary" id="back-btn">← Back to all tasks</button>
+      <h2 id="detail-title"></h2>
+      <div class="card" id="detail-log"></div>
+    </div>
+  </div>
+
+  <script>
+    // Same-origin as this page -- the backend serves this frontend
+    // itself, so this always points at the right place (see index.html
+    // for the full explanation).
+    const BACKEND_HTTP = window.location.origin;
+
+    const listView = document.getElementById("task-list-view");
+    const detailView = document.getElementById("task-detail-view");
+    const tableBody = document.getElementById("task-table-body");
+    const emptyState = document.getElementById("empty-state");
+    const detailTitle = document.getElementById("detail-title");
+    const detailLog = document.getElementById("detail-log");
+    const connectionError = document.getElementById("connection-error");
+    document.getElementById("backend-url-display").textContent = BACKEND_HTTP;
+
+    function statusPill(status) {
+      const span = document.createElement("span");
+      span.className = "status-pill " + status;
+      span.textContent = status;
+      return span;
+    }
+
+    async function loadTaskList() {
+      let data;
+      try {
+        const res = await fetch(`${BACKEND_HTTP}/tasks`);
+        if (!res.ok) throw new Error(`backend returned ${res.status}`);
+        data = await res.json();
+      } catch (err) {
+        connectionError.style.display = "block";
+        tableBody.innerHTML = "";
+        emptyState.style.display = "none";
+        return;
+      }
+      connectionError.style.display = "none";
+      tableBody.innerHTML = "";
+
+      if (data.tasks.length === 0) {
+        emptyState.style.display = "block";
+        return;
+      }
+      emptyState.style.display = "none";
+
+      for (const t of data.tasks) {
+        const row = document.createElement("tr");
+
+        const taskCell = document.createElement("td");
+        const link = document.createElement("a");
+        link.className = "task-link";
+        link.href = "#";
+        link.textContent = t.task_description;
+        link.onclick = (e) => { e.preventDefault(); showDetail(t.task_id, t.task_description); };
+        taskCell.appendChild(link);
+
+        const siteCell = document.createElement("td");
+        siteCell.textContent = t.site === "poisoned" ? "Attack demo" : "Normal application";
+
+        const statusCell = document.createElement("td");
+        statusCell.appendChild(statusPill(t.status));
+
+        const dateCell = document.createElement("td");
+        dateCell.textContent = new Date(t.created_at).toLocaleString();
+
+        row.append(taskCell, siteCell, statusCell, dateCell);
+        tableBody.appendChild(row);
+      }
+    }
+
+    async function showDetail(taskId, description) {
+      listView.style.display = "none";
+      detailView.style.display = "block";
+      detailTitle.textContent = description;
+      detailLog.innerHTML = "Loading…";
+
+      let data;
+      try {
+        const res = await fetch(`${BACKEND_HTTP}/task/${taskId}/log`);
+        if (!res.ok) throw new Error(`backend returned ${res.status}`);
+        data = await res.json();
+      } catch (err) {
+        detailLog.innerHTML = `<div class="event halted">Could not load this task's log -- is the backend running?</div>`;
+        return;
+      }
+      detailLog.innerHTML = "";
+
+      if (data.events.length === 0) {
+        detailLog.innerHTML = "<div class='empty-state'>No events recorded.</div>";
+        return;
+      }
+
+      for (const event of data.events) {
+        const entry = document.createElement("div");
+        entry.className = "log-entry " + event.type;
+
+        const ts = document.createElement("div");
+        ts.className = "ts";
+        ts.textContent = new Date(event.timestamp).toLocaleTimeString();
+
+        const text = document.createElement("div");
+        text.textContent = `[${event.type.toUpperCase()}] ${event.text || event.reason || ""}`;
+
+        entry.appendChild(ts);
+        entry.appendChild(text);
+        detailLog.appendChild(entry);
+      }
+    }
+
+    document.getElementById("back-btn").onclick = () => {
+      detailView.style.display = "none";
+      listView.style.display = "block";
+      loadTaskList();
+    };
+
+    // Deep-link support: dashboard.html?task=<id> opens straight to that task's detail.
+    const params = new URLSearchParams(window.location.search);
+    const deepLinkTaskId = params.get("task");
+
+    loadTaskList().then(() => {
+      if (deepLinkTaskId) {
+        fetch(`${BACKEND_HTTP}/tasks`)
+          .then((r) => r.json())
+          .then((data) => {
+            const match = data.tasks.find((t) => t.task_id === deepLinkTaskId);
+            showDetail(deepLinkTaskId, match ? match.task_description : "Task");
+          });
+      }
+    });
+  </script>
+</body>
+</html>
