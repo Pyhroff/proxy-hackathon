@@ -38,7 +38,7 @@ The current, at-a-glance reference: system flow, full feature list, and the comp
 │                                                                        │
 │   Perceive : agent/browser_runtime.py reads the live page (Playwright)│
 │   Reason   : agent/reasoner.py -- decide_next_action()                │
-│              (currently a mock; Devon's real LLM tool-calling         │
+│              (Groq → Gemini → Ollama with safe local fallback)       │
 │              replaces this -- see DEVON_ARCHITECTURE.pdf)             │
 │   Gate     : policy/gate.py's evaluate() -- see section 3 below       │
 │   Execute  : agent/browser_runtime.py performs the real action        │
@@ -74,7 +74,7 @@ A second, simpler loop (`agent/loop.py`, file-based mock, no real browser) still
 | Human approval flow (e.g. before submit) | ✅ Built, tested | `policy/rules.yaml`, `agent/loop*.py` |
 | Audit log per task | ✅ Built, tested | `backend/audit_log.py` |
 | Task index / case-worker dashboard | ✅ Built, tested | `backend/task_index.py`, `frontend/dashboard.html` |
-| Real LLM agent reasoning | ❌ Not built — mock in place | `agent/reasoner.py` (Devon's scope) |
+| Real LLM agent reasoning | ✅ Built — routed providers plus validated fallback | `agent/reasoner.py` |
 | Docker packaging | ⚠️ Written, unverified (no Docker on this machine) | `Dockerfile`, `docker-compose.yml` |
 | Direct prompt injection defense | 🗺️ Roadmap | `THREAT_MODEL.md` |
 | Voice input/narration | 🗺️ Roadmap, deliberately cut | `THREAT_MODEL.md` |

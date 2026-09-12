@@ -33,7 +33,7 @@ Every proposed action passes through a policy gate (allowlist + injection scanne
 ```bash
 pip install -r requirements.txt
 python -m playwright install chromium
-cp .env.example .env   # add your GROQ_API_KEY
+ cp .env.example .env   # add provider keys
 ```
 
 ## Run
@@ -43,6 +43,8 @@ uvicorn backend.main:app --port 8000
 ```
 
 Open `http://localhost:8000`.
+
+Reasoning providers run in this order: Groq, Gemini, then local Ollama. If all providers are unavailable, the demo uses synthetic non-sensitive values; DOB and other sensitive fields remain human-only and never enter provider context.
 
 **Windows:** don't use `--reload` — see `backend/main.py` for why (a Playwright/asyncio event-loop compatibility issue).
 
