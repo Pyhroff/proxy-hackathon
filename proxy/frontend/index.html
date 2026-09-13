@@ -1,9 +1,7 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <title>Proxy</title>
@@ -16,6 +14,9 @@
     <link rel="stylesheet" href="style.css">
 
     <style>
+        /* ========================================================= */
+        /* PAGE                                                       */
+        /* ========================================================= */
 
         * {
             box-sizing: border-box;
@@ -27,6 +28,11 @@
             background: #f5f5f5;
             color: #222;
         }
+
+
+        /* ========================================================= */
+        /* NAVIGATION                                                  */
+        /* ========================================================= */
 
         .top-nav {
             height: 64px;
@@ -56,6 +62,11 @@
             text-decoration: underline;
         }
 
+
+        /* ========================================================= */
+        /* HERO                                                        */
+        /* ========================================================= */
+
         .split-hero {
             padding: 22px 32px 18px;
             background: white;
@@ -74,6 +85,11 @@
             font-size: 15px;
         }
 
+
+        /* ========================================================= */
+        /* MAIN SPLIT LAYOUT                                           */
+        /* ========================================================= */
+
         .split-layout {
             display: grid;
             grid-template-columns: minmax(320px, 0.85fr) minmax(560px, 1.65fr);
@@ -81,6 +97,11 @@
             height: calc(100vh - 154px);
             padding: 16px;
         }
+
+
+        /* ========================================================= */
+        /* PANELS                                                      */
+        /* ========================================================= */
 
         .panel {
             background: white;
@@ -99,6 +120,11 @@
         .browser-panel {
             width: auto;
         }
+
+
+        /* ========================================================= */
+        /* PANEL HEADER                                                */
+        /* ========================================================= */
 
         .panel-header {
             flex-shrink: 0;
@@ -134,6 +160,11 @@
             font-weight: normal;
         }
 
+
+        /* ========================================================= */
+        /* PANEL BODY                                                  */
+        /* ========================================================= */
+
         .panel-body {
             flex: 1;
             min-height: 0;
@@ -141,6 +172,11 @@
             display: flex;
             flex-direction: column;
         }
+
+
+        /* ========================================================= */
+        /* NARRATION / CHAT                                            */
+        /* ========================================================= */
 
         #narration {
             flex: 1;
@@ -192,6 +228,11 @@
             font-size: 12px;
         }
 
+
+        /* ========================================================= */
+        /* THINKING ANIMATION                                          */
+        /* ========================================================= */
+
         .thinking .dots span {
             animation: thinking-blink 1.4s infinite both;
         }
@@ -215,8 +256,12 @@
             40% {
                 opacity: 1;
             }
-
         }
+
+
+        /* ========================================================= */
+        /* CHAT COMPOSER                                               */
+        /* ========================================================= */
 
         .chat-composer {
             flex-shrink: 0;
@@ -253,6 +298,11 @@
             border-color: #7A0C1E;
         }
 
+
+        /* ========================================================= */
+        /* BUTTONS                                                     */
+        /* ========================================================= */
+
         button {
             border: none;
             border-radius: 6px;
@@ -272,6 +322,11 @@
             cursor: not-allowed;
         }
 
+
+        /* ========================================================= */
+        /* DASHBOARD LINK                                              */
+        /* ========================================================= */
+
         .task-link {
             flex-shrink: 0;
             display: none;
@@ -286,6 +341,11 @@
         .task-link:hover {
             text-decoration: underline;
         }
+
+
+        /* ========================================================= */
+        /* AGENT CONTROL BAR                                           */
+        /* ========================================================= */
 
         .agent-control {
             position: static;
@@ -322,6 +382,11 @@
             font-weight: bold;
         }
 
+
+        /* ========================================================= */
+        /* APPROVAL                                                    */
+        /* ========================================================= */
+
         .approve-box {
             display: flex;
             gap: 8px;
@@ -331,6 +396,11 @@
         .approve-box .deny {
             background: #555;
         }
+
+
+        /* ========================================================= */
+        /* PII                                                         */
+        /* ========================================================= */
 
         .pii-box {
             display: flex;
@@ -345,6 +415,11 @@
             border-radius: 6px;
             padding: 9px;
         }
+
+
+        /* ========================================================= */
+        /* BROWSER PANEL                                               */
+        /* ========================================================= */
 
         .browser-panel .panel-body {
             background: #111;
@@ -369,6 +444,11 @@
             object-fit: contain;
             display: block;
         }
+
+
+        /* ========================================================= */
+        /* FLAGGED VIEW                                                */
+        /* ========================================================= */
 
         .flagged-view {
             width: 80%;
@@ -399,6 +479,11 @@
             white-space: pre-wrap;
         }
 
+
+        /* ========================================================= */
+        /* MOBILE                                                      */
+        /* ========================================================= */
+
         @media (max-width: 900px) {
 
             .split-layout {
@@ -422,9 +507,7 @@
             .chat-composer input {
                 flex: 1;
             }
-
         }
-
     </style>
 
 </head>
@@ -432,6 +515,10 @@
 
 <body>
 
+
+<!-- ============================================================= -->
+<!-- TOP NAVIGATION                                                -->
+<!-- ============================================================= -->
 
 <header class="top-nav">
 
@@ -459,6 +546,10 @@
 </header>
 
 
+<!-- ============================================================= -->
+<!-- HERO                                                          -->
+<!-- ============================================================= -->
+
 <div class="split-hero">
 
     <h1>
@@ -473,11 +564,21 @@
 </div>
 
 
+<!-- ============================================================= -->
+<!-- MAIN SPLIT LAYOUT                                             -->
+<!-- ============================================================= -->
+
 <div class="split-layout">
 
 
+    <!-- ========================================================= -->
+    <!-- LEFT: AGENT CHAT                                           -->
+    <!-- ========================================================= -->
+
     <section class="panel agent-panel">
 
+
+        <!-- PANEL HEADER -->
 
         <div class="panel-header">
 
@@ -498,8 +599,12 @@
         </div>
 
 
+        <!-- PANEL BODY -->
+
         <div class="panel-body">
 
+
+            <!-- CHAT -->
 
             <div
                 id="narration"
@@ -516,6 +621,8 @@
 
             </div>
 
+
+            <!-- CHAT COMPOSER -->
 
             <div class="chat-composer">
 
@@ -547,6 +654,8 @@
             </div>
 
 
+            <!-- DASHBOARD LINK -->
+
             <a
                 id="log-link"
                 class="task-link"
@@ -556,6 +665,8 @@
                 View this task in the Case Worker Dashboard →
             </a>
 
+
+            <!-- USER CONTROL -->
 
             <div
                 class="agent-control"
@@ -586,8 +697,14 @@
     </section>
 
 
+    <!-- ========================================================= -->
+    <!-- RIGHT: LIVE BROWSER VIEW                                   -->
+    <!-- ========================================================= -->
+
     <section class="panel browser-panel">
 
+
+        <!-- PANEL HEADER -->
 
         <div class="panel-header">
 
@@ -602,6 +719,8 @@
 
         </div>
 
+
+        <!-- BROWSER VIEW -->
 
         <div
             class="panel-body"
@@ -627,6 +746,10 @@
 <script>
 
 
+/* ============================================================= */
+/* BACKEND CONNECTION                                             */
+/* ============================================================= */
+
 const BACKEND_HTTP =
     window.location.origin;
 
@@ -639,6 +762,10 @@ const BACKEND_WS =
     )
     + window.location.host;
 
+
+/* ============================================================= */
+/* DOM REFERENCES                                                 */
+/* ============================================================= */
 
 const narrationEl =
     document.getElementById("narration");
@@ -684,6 +811,10 @@ const stepProgressEl =
     document.getElementById("step-progress");
 
 
+/* ============================================================= */
+/* STATE                                                           */
+/* ============================================================= */
+
 let currentTaskId = null;
 
 let ws = null;
@@ -701,27 +832,23 @@ let agentRunning = false;
 let userHasControl = false;
 
 
-/*
- * CDP FRAME STATE
- *
- * These were missing previously.
- */
-
-let pendingFrame = null;
-
-let frameRenderScheduled = false;
-
+/* ============================================================= */
+/* NARRATION                                                       */
+/* ============================================================= */
 
 function addEvent(type, text, meta = null) {
 
     const div =
         document.createElement("div");
 
+
     div.className =
         "event " + type;
 
+
     div.textContent =
         text || "";
+
 
     if (
         meta &&
@@ -734,10 +861,13 @@ function addEvent(type, text, meta = null) {
         const sub =
             document.createElement("div");
 
+
         sub.className =
             "event-meta";
 
+
         let metadata = "";
+
 
         if (meta.provider) {
 
@@ -745,6 +875,7 @@ function addEvent(type, text, meta = null) {
                 "via " + meta.provider;
 
         }
+
 
         if (
             meta.provider &&
@@ -755,6 +886,7 @@ function addEvent(type, text, meta = null) {
 
         }
 
+
         if (meta.reason) {
 
             metadata +=
@@ -762,32 +894,44 @@ function addEvent(type, text, meta = null) {
 
         }
 
+
         sub.textContent =
             metadata;
+
 
         div.appendChild(sub);
 
     }
 
+
     narrationEl.appendChild(div);
+
 
     narrationEl.scrollTop =
         narrationEl.scrollHeight;
+
 
     return div;
 
 }
 
 
+/* ============================================================= */
+/* THINKING                                                        */
+/* ============================================================= */
+
 function showThinking() {
 
     hideThinking();
 
+
     thinkingEl =
         document.createElement("div");
 
+
     thinkingEl.className =
         "event narration thinking";
+
 
     thinkingEl.innerHTML =
         "Proxy is thinking" +
@@ -797,9 +941,11 @@ function showThinking() {
         '<span>.</span>' +
         "</span>";
 
+
     narrationEl.appendChild(
         thinkingEl
     );
+
 
     narrationEl.scrollTop =
         narrationEl.scrollHeight;
@@ -820,6 +966,10 @@ function hideThinking() {
 }
 
 
+/* ============================================================= */
+/* STEP COUNTER                                                    */
+/* ============================================================= */
+
 function bumpStep() {
 
     stepCount++;
@@ -830,11 +980,9 @@ function bumpStep() {
 }
 
 
-/*
- * ============================================================
- * CDP LIVE VIEW
- * ============================================================
- */
+/* ============================================================= */
+/* CDP LIVE VIEW                                                    */
+/* ============================================================= */
 
 function showScreenshot(
     base64Data,
@@ -842,9 +990,7 @@ function showScreenshot(
 ) {
 
     if (attackFlagged) {
-
         return;
-
     }
 
 
@@ -882,21 +1028,16 @@ function showScreenshot(
 
 
     pendingFrame =
-        "data:image/" +
-        mime +
-        ";base64," +
-        base64Data;
+        `data:image/${mime};base64,`
+        + base64Data;
 
 
     if (frameRenderScheduled) {
-
         return;
-
     }
 
 
-    frameRenderScheduled =
-        true;
+    frameRenderScheduled = true;
 
 
     requestAnimationFrame(
@@ -908,17 +1049,11 @@ function showScreenshot(
 
 function renderLatestFrame() {
 
-    frameRenderScheduled =
-        false;
+    frameRenderScheduled = false;
 
 
-    if (
-        !liveImgEl ||
-        !pendingFrame
-    ) {
-
+    if (!liveImgEl || !pendingFrame) {
         return;
-
     }
 
 
@@ -926,28 +1061,23 @@ function renderLatestFrame() {
         pendingFrame;
 
 
-    pendingFrame =
-        null;
+    pendingFrame = null;
 
 }
 
 
-/*
- * ============================================================
- * SECURITY FLAGGED VIEW
- * ============================================================
- */
+/* ============================================================= */
+/* SECURITY FLAGGED VIEW                                          */
+/* ============================================================= */
 
 function showFlaggedContent(
     blockedPattern,
     reason
 ) {
 
-    attackFlagged =
-        true;
+    attackFlagged = true;
 
-    liveImgEl =
-        null;
+    liveImgEl = null;
 
 
     browserPanelTitle.textContent =
@@ -1026,19 +1156,15 @@ function showFlaggedContent(
 }
 
 
+/* ============================================================= */
+/* RESET BROWSER PANEL                                             */
+/* ============================================================= */
+
 function resetBrowserPanel() {
 
-    attackFlagged =
-        false;
+    attackFlagged = false;
 
-    liveImgEl =
-        null;
-
-    pendingFrame =
-        null;
-
-    frameRenderScheduled =
-        false;
+    liveImgEl = null;
 
 
     browserPanelTitle.textContent =
@@ -1059,13 +1185,15 @@ function resetBrowserPanel() {
 }
 
 
+/* ============================================================= */
+/* AGENT CONTROL STATE                                             */
+/* ============================================================= */
+
 function setAgentRunningState() {
 
-    agentRunning =
-        true;
+    agentRunning = true;
 
-    userHasControl =
-        false;
+    userHasControl = false;
 
 
     agentDot.className =
@@ -1096,11 +1224,9 @@ function setAgentRunningState() {
 
 function setUserControlState() {
 
-    agentRunning =
-        false;
+    agentRunning = false;
 
-    userHasControl =
-        true;
+    userHasControl = true;
 
 
     agentDot.className =
@@ -1131,11 +1257,9 @@ function setUserControlState() {
 
 function setFinishedState() {
 
-    agentRunning =
-        false;
+    agentRunning = false;
 
-    userHasControl =
-        false;
+    userHasControl = false;
 
 
     controlBtn.disabled =
@@ -1156,13 +1280,15 @@ function setFinishedState() {
 }
 
 
+/* ============================================================= */
+/* INTERRUPT / RETURN CONTROL                                     */
+/* ============================================================= */
+
 controlBtn.onclick =
     async function () {
 
         if (!currentTaskId) {
-
             return;
-
         }
 
 
@@ -1204,6 +1330,10 @@ controlBtn.onclick =
 
     };
 
+
+/* ============================================================= */
+/* APPROVAL PROMPT                                                 */
+/* ============================================================= */
 
 function addApprovalPrompt(reasonText) {
 
@@ -1275,6 +1405,10 @@ function addApprovalPrompt(reasonText) {
 }
 
 
+/* ============================================================= */
+/* SEND APPROVAL                                                   */
+/* ============================================================= */
+
 async function sendApproval(
     approved,
     box
@@ -1304,11 +1438,9 @@ async function sendApproval(
 
 
         if (!response.ok) {
-
             throw new Error(
                 "Approval request failed."
             );
-
         }
 
 
@@ -1331,6 +1463,10 @@ async function sendApproval(
 
 }
 
+
+/* ============================================================= */
+/* PII PROMPT                                                      */
+/* ============================================================= */
 
 function addPiiPrompt(
     fieldId,
@@ -1405,6 +1541,10 @@ function addPiiPrompt(
 }
 
 
+/* ============================================================= */
+/* SEND PII                                                        */
+/* ============================================================= */
+
 async function sendPiiValue(
     value,
     box
@@ -1434,11 +1574,9 @@ async function sendPiiValue(
 
 
         if (!response.ok) {
-
             throw new Error(
                 "PII request failed."
             );
-
         }
 
 
@@ -1459,6 +1597,10 @@ async function sendPiiValue(
 
 }
 
+
+/* ============================================================= */
+/* START TASK                                                      */
+/* ============================================================= */
 
 async function startTask() {
 
@@ -1481,16 +1623,14 @@ async function startTask() {
     resetBrowserPanel();
 
 
-    stepCount =
-        0;
+    stepCount = 0;
 
 
     stepProgressEl.textContent =
         "";
 
 
-    currentTaskId =
-        null;
+    currentTaskId = null;
 
 
     setAgentRunningState();
@@ -1628,11 +1768,9 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * CDP LIVE FRAME
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* CDP LIVE FRAME                                    */
+                /* ================================================= */
 
                 if (
                     event.type ===
@@ -1649,11 +1787,9 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * PER-STEP SCREENSHOT
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* PER-STEP SCREENSHOT                               */
+                /* ================================================= */
 
                 if (event.screenshot) {
 
@@ -1668,21 +1804,16 @@ async function startTask() {
                 hideThinking();
 
 
-                if (
-                    event.type ===
-                    "step"
-                ) {
+                if (event.type === "step") {
 
                     bumpStep();
 
                 }
 
 
-                /*
-                 * =================================================
-                 * PII
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* PII                                               */
+                /* ================================================= */
 
                 if (
                     event.type ===
@@ -1698,11 +1829,9 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * APPROVAL
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* APPROVAL                                          */
+                /* ================================================= */
 
                 else if (
                     event.type ===
@@ -1718,11 +1847,9 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * SECURITY BLOCK
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* SECURITY BLOCK                                    */
+                /* ================================================= */
 
                 else if (
                     event.type ===
@@ -1732,8 +1859,8 @@ async function startTask() {
 
                     addEvent(
                         "halted",
-                        "🛑 Blocked: " +
-                        (
+                        "🛑 Blocked: "
+                        + (
                             event.reason ||
                             "Unsafe page content detected."
                         )
@@ -1748,19 +1875,19 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * NORMAL EVENT
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* NORMAL EVENT                                      */
+                /* ================================================= */
 
                 else {
 
                     addEvent(
                         event.type,
-                        event.text ||
-                        event.reason ||
-                        "",
+                        event.text
+                            ||
+                            event.reason
+                            ||
+                            "",
                         {
                             provider:
                                 event.provider,
@@ -1775,11 +1902,9 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * TASK END
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* TASK END                                          */
+                /* ================================================= */
 
                 if (
                     event.type ===
@@ -1821,16 +1946,13 @@ async function startTask() {
                 }
 
 
-                /*
-                 * =================================================
-                 * CONTINUE THINKING
-                 * =================================================
-                 */
+                /* ================================================= */
+                /* CONTINUE THINKING                                 */
+                /* ================================================= */
 
                 if (
                     agentRunning &&
-                    event.type ===
-                    "thinking"
+                    event.type === "thinking"
                 ) {
 
                     showThinking();
@@ -1891,8 +2013,8 @@ async function startTask() {
 
         addEvent(
             "halted",
-            "Could not start task: " +
-            error.message
+            "Could not start task: "
+            + error.message
         );
 
 
@@ -1906,6 +2028,10 @@ async function startTask() {
 }
 
 
+/* ============================================================= */
+/* RESET START BUTTON                                              */
+/* ============================================================= */
+
 function resetButton() {
 
     startBtn.disabled =
@@ -1918,9 +2044,17 @@ function resetButton() {
 }
 
 
+/* ============================================================= */
+/* START BUTTON                                                    */
+/* ============================================================= */
+
 startBtn.onclick =
     startTask;
 
+
+/* ============================================================= */
+/* ENTER KEY                                                       */
+/* ============================================================= */
 
 document
     .getElementById("task-input")
@@ -1946,4 +2080,3 @@ document
 </body>
 
 </html>
-```
