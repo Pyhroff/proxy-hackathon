@@ -17,7 +17,8 @@ you'll see every single action pass through it, no exceptions.
 
 Swap points for the real system, clearly marked below:
   - agent/perception.py: swap file-reading for real Playwright calls
-  - agent/reasoner.py:   swap the mock decision function for a real LLM call
+  - agent/reasoner.py:   now calls real providers (Groq/Gemini/Ollama) --
+    this file's perception (file-reading) is still the mock, not the reasoning
   - execute_action() in this file: swap the print-based simulation for
     real Playwright actions
 Nothing in the loop's control flow or its use of the policy gate needs
@@ -99,7 +100,8 @@ def run_task_events(
     while steps < MAX_STEPS:
         steps += 1
 
-        # --- REASON --- (mock for now, see agent/reasoner.py's docstring)
+        # --- REASON --- (real providers now, see agent/reasoner.py; this
+        # loop's PERCEPTION is still file-based/mock, used for isolated tests)
         action = decide_next_action(task_description, fields, filled_fields, submit_selector)
 
         # --- GATE --- (this call is the entire security story of the project)
