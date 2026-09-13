@@ -85,26 +85,18 @@ async def start_cdp_stream(page: Page, on_frame) -> "object":
     arrive mid-action, not just after one completes. Returns the CDP
     session; pass it to stop_cdp_stream() when the task ends."""
     cdp = await page.context.new_cdp_session(page)
-    busy = {"delivering": False}  # drop-latest-frame guard, see below
 
     def _on_frame(params: dict) -> None:
         async def _handle():
-            # If a prior on_frame() delivery (e.g. a slow WebSocket send)
-            # is still in flight, skip THIS frame's delivery rather than
-            # stacking another background task -- unbounded create_task()
-            # calls under a slow consumer can otherwise pile up faster
-            # than they drain. Still ack immediately either way, so Chrome
-            # itself never stalls waiting on us.
-            if not busy["delivering"]:
-                busy["delivering"] = True
-                try:
-                    await on_frame(params["data"])
-                finally:
-                    busy["delivering"] = False
             try:
-                await cdp.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]})
-            except Exception:
-                pass
+                await on_frame(params["data"])
+            finally:
+                # Chrome pauses sending more frames until each one is
+                # acked -- forgetting this silently stalls the stream.
+                try:
+                    await cdp.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]})
+                except Exception:
+                    pass
         asyncio.create_task(_handle())
 
     cdp.on("Page.screencastFrame", _on_frame)
