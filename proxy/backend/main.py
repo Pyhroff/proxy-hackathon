@@ -27,17 +27,17 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from browser.playwright_controller import PlaywrightController
-from perception.page_perception import PagePerception
-from agent.agent import Agent
-from agent.actions import ActionExecutor
+from proxy.browser.playwright_controller import PlaywrightController
+from proxy.perception.page_perception import PagePerception
+from proxy.agent.agent import Agent
+from proxy.agent.actions import ActionExecutor
 
-from backend.audit_log import (
+from proxy.backend.audit_log import (
     append_event,
     read_log
 )
 
-from backend.task_index import (
+from proxy.backend.task_index import (
     register_task,
     update_status,
     list_tasks
@@ -57,22 +57,23 @@ app.add_middleware(
 )
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
+_PROXY_DIR = BASE_DIR / "proxy"
 
 
 _SITE_PATHS = {
     "clean": (
-        BASE_DIR
+        _PROXY_DIR
         / "demo-sites"
         / "clean"
-        / "application.html"
+        / "index.html"
     ),
 
     "poisoned": (
-        BASE_DIR
+        _PROXY_DIR
         / "demo-sites"
         / "poisoned"
-        / "application.html"
+        / "index.html"
     )
 }
 
@@ -81,6 +82,13 @@ _DEMO_DOMAIN = "benefits-demo.local"
 
 
 _tasks = {}
+_sessions = {}
+
+
+class SessionProfile(BaseModel):
+    full_name: str
+    address: str
+    income: str
 
 
 class TaskState:
@@ -90,7 +98,8 @@ class TaskState:
         task_id,
         task,
         site,
-        html_path
+        html_path,
+        profile=None
     ):
 
         self.task_id = task_id
@@ -100,6 +109,7 @@ class TaskState:
         self.site = site
 
         self.html_path = html_path
+        self.profile = profile or {}
 
         self.browser = None
 
@@ -133,6 +143,7 @@ class StartTaskRequest(BaseModel):
     task: str
 
     site: str = "clean"
+    session_id: str | None = None
 
 
 class ApproveRequest(BaseModel):
@@ -151,6 +162,34 @@ def health():
     return {
         "status": "ok"
     }
+
+
+@app.post("/session/start")
+def start_session():
+    session_id = str(uuid.uuid4())
+    _sessions[session_id] = {"profile": None}
+    return {"session_id": session_id}
+
+
+@app.post("/session/{session_id}/profile")
+def save_session_profile(session_id: str, profile: SessionProfile):
+    if session_id not in _sessions:
+        return {"ok": False, "error": "unknown session_id"}
+    clean_profile = {
+        "full_name": profile.full_name.strip(),
+        "address": profile.address.strip(),
+        "income": profile.income.strip(),
+    }
+    if not all(clean_profile.values()):
+        return {"ok": False, "error": "all profile fields are required"}
+    _sessions[session_id]["profile"] = clean_profile
+    return {"ok": True}
+
+
+@app.post("/session/{session_id}/reset")
+def reset_session(session_id: str):
+    _sessions.pop(session_id, None)
+    return {"ok": True}
 
 
 @app.get("/")
@@ -177,6 +216,11 @@ def start_task(
 
     html_path = _SITE_PATHS[req.site]
 
+    session = _sessions.get(req.session_id) if req.session_id else None
+    profile = session.get("profile") if session else None
+    if not profile:
+        return {"error": "Start a session and save the non-PII profile first."}
+
     if not html_path.exists():
 
         return {
@@ -194,7 +238,8 @@ def start_task(
         task_id=task_id,
         task=req.task,
         site=req.site,
-        html_path=html_path
+        html_path=html_path,
+        profile=profile
     )
 
     _tasks[task_id] = state
@@ -365,10 +410,20 @@ def run_agent_thread(
             state.html_path.as_uri()
         )
 
+        profile_context = (
+            "\n\nSESSION PROFILE (explicitly provided for this active session; "
+            "use these values for matching non-sensitive form fields):\n"
+            f"Full name: {state.profile['full_name']}\n"
+            f"Address: {state.profile['address']}\n"
+            f"Annual household income: {state.profile['income']}\n"
+            "Ask the user only for sensitive fields such as date of birth, "
+            "government ID, passwords, or other protected data."
+        )
+
         state.agent = Agent(
             state.perception,
             state.executor,
-            state.task
+            state.task + profile_context
         )
 
         callback = make_callback(

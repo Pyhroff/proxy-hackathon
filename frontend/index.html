@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 
@@ -419,9 +418,48 @@
                 flex: 1 1 100%;
             }
 
-            .chat-composer input {
-                flex: 1;
-            }
+        .chat-composer input {
+            flex: 1;
+        }
+
+        .session-profile {
+            margin-bottom: 18px;
+            padding: 14px;
+            border: 1px solid #d7dce5;
+            border-radius: 8px;
+            background: #f7f9fc;
+        }
+
+        .session-profile h3 {
+            margin: 0 0 6px;
+            font-size: 16px;
+        }
+
+        .session-profile p {
+            margin: 0 0 10px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .session-profile input {
+            width: 100%;
+            box-sizing: border-box;
+            margin: 4px 0;
+            padding: 9px;
+            border: 1px solid #bbb;
+            border-radius: 6px;
+        }
+
+        .session-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .session-actions button {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
 
         }
 
@@ -452,6 +490,12 @@
 
         <a href="dashboard.html">
             Case Worker Dashboard
+        </a>
+
+        &nbsp;&nbsp;
+
+        <a href="session.html">
+            New Session
         </a>
 
     </nav>
@@ -515,7 +559,6 @@
                 </div>
 
             </div>
-
 
             <div class="chat-composer">
 
@@ -699,6 +742,10 @@ let attackFlagged = false;
 let agentRunning = false;
 
 let userHasControl = false;
+
+let currentSessionId = localStorage.getItem("proxy_session_id");
+
+let profileReady = localStorage.getItem("proxy_profile_ready") === "true";
 
 
 /*
@@ -1462,6 +1509,11 @@ async function sendPiiValue(
 
 async function startTask() {
 
+    if (!profileReady || !currentSessionId) {
+        addEvent("halted", "Start a session and save the non-sensitive profile first.");
+        return;
+    }
+
     narrationEl.innerHTML =
         "";
 
@@ -1546,7 +1598,8 @@ async function startTask() {
 
                     body: JSON.stringify({
                         task,
-                        site
+                        site,
+                        session_id: currentSessionId
                     })
                 }
             );
@@ -1921,7 +1974,6 @@ function resetButton() {
 startBtn.onclick =
     startTask;
 
-
 document
     .getElementById("task-input")
     .addEventListener(
@@ -1946,4 +1998,3 @@ document
 </body>
 
 </html>
-```

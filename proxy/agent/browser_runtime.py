@@ -23,8 +23,8 @@ import pathlib
 
 from playwright.async_api import async_playwright, Page, Browser, Playwright
 
-from policy.html_utils import content_hash
-from policy.models import UntrustedContent
+from proxy.policy.html_utils import content_hash
+from proxy.policy.models import UntrustedContent
 
 
 def _to_file_url(html_path: str) -> str:

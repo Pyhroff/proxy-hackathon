@@ -40,10 +40,10 @@ ever find yourself writing "just for testing, skip the gate here" --
 don't. That code path is the whole security story of this project.
 """
 
-from policy.models import ActionRequest, GateResult
-from policy.pii import is_pii_field
-from policy.rules_loader import get_rules, is_domain_allowed, get_action_rule
-from policy.scanner import scan
+from proxy.policy.models import ActionRequest, GateResult
+from proxy.policy.pii import is_pii_field
+from proxy.policy.rules_loader import get_rules, is_domain_allowed, get_action_rule
+from proxy.policy.scanner import scan
 
 
 def _field_id_from_selector(selector: str) -> str:
