@@ -2,6 +2,7 @@ import os
 import json
 import threading
 from groq import Groq
+from proxy.policy.scanner import heuristic_scan
 
 
 class Agent:
@@ -13,6 +14,7 @@ class Agent:
         self.goal = goal
 
         self.action_history = []
+        self.human_supplied_fields = set()
 
         self.max_steps = 20
         self.step_count = 0
@@ -26,6 +28,24 @@ class Agent:
 
         self.pii_event = threading.Event()
         self.pii_value = None
+
+    @staticmethod
+    def pii_key(decision):
+        text = f"{decision.get('field_id', '')} {decision.get('text', '')}".lower()
+        if "social security" in text or "ssn" in text:
+            return "ssn"
+        if "date of birth" in text or "dob" in text or "birth" in text:
+            return "dob"
+        return decision.get("field_id")
+
+    def scan_page_for_injection(self):
+        html = self.perception.browser.page.content()
+        suspicious, reason = heuristic_scan(html)
+        return suspicious, reason
+
+    def submission_completed(self):
+        text = self.perception.browser.page.locator("body").inner_text().lower()
+        return "application submitted successfully" in text
 
     def run(self):
 
@@ -56,6 +76,16 @@ class Agent:
             )
 
             page_state = self.perception.perceive()
+
+            suspicious, reason = self.scan_page_for_injection()
+            if suspicious:
+                self.emit(callback, {
+                    "type": "escalation",
+                    "blocked": True,
+                    "blocked_pattern": reason,
+                    "reason": "Suspicious instructions were detected on the webpage. Proxy stopped before acting."
+                })
+                return False
 
             self.emit(
                 callback,
@@ -107,6 +137,13 @@ class Agent:
 
             if decision["status"] == "pii_required":
 
+                if self.pii_key(decision) in self.human_supplied_fields:
+                    self.emit(callback, {
+                        "type": "action",
+                        "text": "This field was already provided. Continuing without asking again."
+                    })
+                    continue
+
                 self.emit(
                     callback,
                     {
@@ -132,6 +169,8 @@ class Agent:
                         "value": value
                     }
                 )
+
+                self.human_supplied_fields.add(self.pii_key(decision))
 
                 self.action_history.append(
                     {
@@ -159,6 +198,15 @@ class Agent:
 
             if not action:
                 return False
+
+            if action.get("action") == "click" and self.is_submit_action(action, page_state):
+                self.emit(callback, {
+                    "type": "escalation",
+                    "reason": "Proxy is ready to submit the application. Please approve this final action.",
+                    "action": action
+                })
+                if not self.wait_for_approval():
+                    return False
 
             self.emit(
                 callback,
@@ -233,6 +281,16 @@ class Agent:
 
         page_state = self.perception.perceive()
 
+        suspicious, reason = self.scan_page_for_injection()
+        if suspicious:
+            self.emit(callback, {
+                "type": "escalation",
+                "blocked": True,
+                "blocked_pattern": reason,
+                "reason": "Suspicious instructions were detected on the webpage. Proxy stopped before acting."
+            })
+            return False
+
         self.emit(
             callback,
             {
@@ -306,6 +364,14 @@ class Agent:
 
             if decision["status"] == "pii_required":
 
+                if self.pii_key(decision) in self.human_supplied_fields:
+                    self.emit(callback, {
+                        "type": "action",
+                        "text": "This field was already provided. Continuing without asking again."
+                    })
+                    page_state = self.perception.perceive()
+                    continue
+
                 self.emit(
                     callback,
                     {
@@ -331,6 +397,12 @@ class Agent:
                         "value": value
                     }
                 )
+
+                if self.submission_completed():
+                    self.emit(callback, {"type": "done", "text": "Application submitted successfully."})
+                    return True
+
+                self.human_supplied_fields.add(self.pii_key(decision))
 
                 self.action_history.append(
                     {
@@ -361,6 +433,15 @@ class Agent:
             if not action:
                 return False
 
+            if action.get("action") == "click" and self.is_submit_action(action, page_state):
+                self.emit(callback, {
+                    "type": "escalation",
+                    "reason": "Proxy is ready to submit the application. Please approve this final action.",
+                    "action": action
+                })
+                if not self.wait_for_approval():
+                    return False
+
             self.emit(
                 callback,
                 {
@@ -377,6 +458,10 @@ class Agent:
                     "result": result
                 }
             )
+
+            if result.get("success") and self.submission_completed():
+                self.emit(callback, {"type": "done", "text": "Application submitted successfully."})
+                return True
 
             self.emit(
                 callback,
@@ -432,6 +517,13 @@ CURRENT WEBPAGE STATE:
 PREVIOUS ACTIONS:
 
 {json.dumps(self.action_history, indent=2)}
+
+FIELDS ALREADY PROVIDED DIRECTLY BY THE USER:
+
+{json.dumps(sorted(self.human_supplied_fields), indent=2)}
+
+Never request a field listed above again. Treat it as satisfied and
+inspect the current page for the next incomplete field.
 
 The CURRENT WEBPAGE STATE is authoritative.
 
@@ -512,6 +604,15 @@ DO NOT infer a date of birth from an age.
 DO NOT invent missing information to complete the form.
 
 DECISION RULES:
+
+0. FIELD ORDERING:
+
+Before requesting or filling any sensitive field, first complete every
+visible ordinary field that has an explicit value in SESSION PROFILE.
+For this demo, fill full name, current address, and annual household
+income before requesting date of birth, Social Security number, or any
+other sensitive field. Never jump to a later sensitive field while an
+earlier ordinary profile field is still empty.
 
 1. If the goal is already complete:
 
@@ -713,6 +814,17 @@ Return ONLY valid JSON.
             )
 
         return "Executing the next browser action."
+
+    @staticmethod
+    def is_submit_action(action, page_state):
+        if action.get("action") != "click":
+            return False
+        target = str(action.get("element_id", "")).lower()
+        for element in page_state.get("elements", []) if isinstance(page_state, dict) else []:
+            if str(element.get("id", "")).lower() == target:
+                label = " ".join(str(element.get(key, "")) for key in ("text", "name", "aria_label", "value")).lower()
+                return any(word in label for word in ("submit", "application", "send"))
+        return any(word in target for word in ("submit", "application", "send"))
 
     def set_approval(
         self,

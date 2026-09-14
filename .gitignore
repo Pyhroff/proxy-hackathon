@@ -1,9 +1,11 @@
 .env
 venv/
+.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 backend/data/
+proxy/backend/data/
 node_modules/
 learning/
 DEVON_ARCHITECTURE.pdf

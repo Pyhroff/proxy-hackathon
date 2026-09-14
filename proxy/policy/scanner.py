@@ -29,7 +29,7 @@ import random
 import re
 import time
 
-from policy.models import UntrustedContent
+from proxy.policy.models import UntrustedContent
 
 SUSPICIOUS_PATTERNS = [
     "ignore previous instructions",
