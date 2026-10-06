@@ -22,4 +22,4 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements.txt
       - name: Run deterministic security tests
-        run: pytest proxy/eval/test_gate.py proxy/eval/test_pii.py -v
+        run: PYTHONPATH=proxy pytest proxy/eval/test_gate.py proxy/eval/test_pii.py -v
